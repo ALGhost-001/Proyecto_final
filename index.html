@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lector QR - Validador de Acceso v2</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 20px;
+        background-color: #f4f4f4;
+      }
+      #reader {
+        width: 400px;
+        max-width: 100%;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 10px; /* Aumentado el padding para hacerlo más grande */
+        border-radius: 8px; /* Borde un poco más redondeado */
+        width: 450px; /* Aumentada la anchura */
+        max-width: 90%;
+        text-align: center;
+        /* Estilos generales de mensaje grande */
+        font-size: 1em; /* ¡Texto mucho más grande! */
+        font-weight: bold; /* Texto en negrita por defecto */
+        text-transform: uppercase; /* Todo en mayúsculas para impacto */
+        transition: background-color 0.3s, color 0.3s, transform 0.3s; /* Añade una transición suave */
+      }
+      /* Estilos para el texto de detalle dentro del mensaje */
+      #result strong {
+        display: block; /* Mantiene el mensaje principal en una línea */
+        margin-bottom: 5px;
+        font-size: 1em; /* Hace el mensaje principal ligeramente más grande */
+      }
+      #result br {
+        display: none; /* Oculta el <br> original */
+      }
+      #result span.detail {
+        display: block;
+        font-size: 0.5em; /* El detalle del ID o del error es más pequeño */
+        font-weight: normal;
+        margin-top: 10px;
+        text-transform: none; /* Mantiene el detalle sin mayúsculas */
+      }
+
+      /* Estilos de estado (Colores) */
+      .success {
+        background-color: #e8f5e9; /* Verde claro */
+        border: 3px solid #4caf50; /* Borde más grueso y verde oscuro */
+        color: #1b5e20; /* Texto verde muy oscuro */
+        box-shadow: 0 4px 8px rgba(0, 150, 0, 0.2); /* Sombra para resaltar */
+      }
+      .warning {
+        background-color: #fff8e1;
+        border: 3px solid #ffc107;
+        color: #ff6f00;
+        box-shadow: 0 4px 8px rgba(255, 165, 0, 0.2);
+      }
+      .error {
+        background-color: #ffebee; /* Rojo claro */
+        border: 3px solid #f44336; /* Borde más grueso y rojo */
+        color: #b71c1c; /* Texto rojo muy oscuro */
+        box-shadow: 0 4px 8px rgba(255, 0, 0, 0.3);
+      }
+      .scanning {
+        background-color: #e3f2fd;
+        border: 2px solid #2196f3;
+        color: #0d47a1;
+        font-size: 1.2em; /* Un poco más pequeño mientras escanea */
+        font-weight: normal;
+        text-transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Centroaguas 25 Años</h1>
+
+    <div id="reader"></div>
+    <div id="result" class="scanning">Esperando escaneo...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+    <script>
+      // --- Configuración del endpoint de la API ---
+      // *** IMPORTANTE: Usa la URL de tu API desplegada en Azure, no 127.0.0.1 en producción ***
+      const API_ENDPOINT = "https://aquivasuapi/validate_qr";
+      const resultDiv = document.getElementById("result");
+
+      // Ahora, la clase Html5Qrcode ya estará definida.
+      const html5QrCode = new Html5Qrcode("reader");
+
+      // Función que se ejecuta al escanear exitosamente
+      const onScanSuccess = (decodedText, decodedResult) => {
+        html5QrCode.pause();
+        resultDiv.className = "scanning";
+        resultDiv.innerHTML = `Escaneado: ${decodedText}. Procesando...`;
+
+        validateQrCode(decodedText);
+      };
+
+      // Función para enviar el ID a la API y manejar la respuesta
+      const validateQrCode = async (qrId) => {
+        // ... (el resto de tu lógica es correcta) ...
+        try {
+          const response = await fetch(API_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ qr_id: qrId }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            resultDiv.className = data.status;
+            resultDiv.innerHTML = `<strong>${data.message}</strong><br>ID: ${data.details.id}`;
+          } else {
+            resultDiv.className = "error";
+            resultDiv.innerHTML = `<strong>ERROR:</strong> ${
+              data.detail || "Error desconocido"
+            }`;
+          }
+        } catch (error) {
+          resultDiv.className = "error";
+          resultDiv.innerHTML = `<strong>ERROR DE CONEXIÓN:</strong> No se pudo conectar a la API.`;
+        } finally {
+          setTimeout(() => {
+            html5QrCode.resume();
+            resultDiv.className = "scanning";
+            resultDiv.innerHTML = "Esperando escaneo...";
+          }, 3000);
+        }
+      };
+
+      // Iniciar el escáner
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        (errorMessage) => {
+          // ...
+        }
+      );
+    </script>
+  </body>
+</html>
